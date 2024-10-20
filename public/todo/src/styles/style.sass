@@ -1,0 +1,51 @@
+@import "bootstrap"
+
+body
+  background-color: #0079c0
+
+.navbar, .footer
+  background-color: #0167a4
+
+.dropdown-toggle.show::after
+  transform: rotate(180deg)
+
+.main
+  min-height: 100vh
+
+.footer
+  width: 100%
+
+.btn:hover
+  background: rgba(0, 0, 0, 0.4)
+  color: black
+
+#app-login-btn
+  width: 160px
+
+.block-status
+  background-color: #ebecf0
+
+.app-task-list-item
+  background: white
+  border-radius: 5px
+  padding: .5em
+  margin: .5em
+
+.app-task-list-item:hover
+  background: rgba(0,0,0,.3)
+  cursor: pointer
+
+.dropdown > .btn-secondary
+  color: white
+
+@include media-breakpoint-down(lg)
+  .app-blocks-status
+    display: grid
+    row-gap: 1em
+
+  .dropdown-menu
+    width: 100%
+
+  .nav-link:hover
+    background: rgba(0,0,0,.2)
+    padding-left: 1em
