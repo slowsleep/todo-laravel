@@ -6,13 +6,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Simple TODO App</title>
         <script defer src="{{ asset('todo/public/bundle.js') }}"></script>
+        <meta name="csrf-token" content="{{ csrf_token() }}">
     </head>
 
     <body>
         <header>
             <nav class="navbar navbar-expand-lg">
                 <div class="container-fluid">
-                    <a class="navbar-brand text-light" href="/">SimpleTODO</a>
+                    <a class="navbar-brand text-light" href="/app">SimpleTODO</a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
                         data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
