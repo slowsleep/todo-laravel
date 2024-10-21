@@ -169,10 +169,11 @@ export function menu(isAdmin = false) {
 export function navRight(isAuth) {
     let fieldHTMLContent = isAuth ? formLoginned : formUnloginned;
     document.querySelector("#app-nav-right").innerHTML = fieldHTMLContent;
+
     if (appState.currentUser) {
-        let user = UserController.getUserById(appState.currentUser.id);
+        let user = UserController.getUser();
         if (user) {
-            document.querySelector("#app-menu-login").innerHTML = user.login;
+            document.querySelector("#app-menu-login").innerHTML = user.name;
             let userAvatar = document.querySelector("#app-user-avatar");
             if (user.avatar) {
                 userAvatar = user.avatar;
@@ -195,9 +196,9 @@ export function notFound() {
 
 export function profile(appState) {
     document.querySelector("#content").innerHTML = profileTemplate;
-    let user = UserController.getUserById(appState.currentUser.id);
+    let user = UserController.getUser();
     let profileLogin = document.querySelector("#app-profile-login");
-    profileLogin.textContent = user.login;
+    profileLogin.textContent = user.name;
 
     let profileContent = document.querySelector("#app-profile-content");
     let formChange = document.querySelector("#app-form-profile-change");
@@ -210,7 +211,7 @@ export function profile(appState) {
         formChange.style.display = "block";
         profileContent.style.display = "none";
 
-        document.querySelector("#app-form-change-login").value = user.login;
+        document.querySelector("#app-form-change-login").value = user.name;
 
         let btnCancel = document.querySelector("#app-btn-cancel-change-profile");
         btnCancel.addEventListener("click", function() {
@@ -223,12 +224,12 @@ export function profile(appState) {
         btnSave.addEventListener("click", function() {
             let newLogin = document.querySelector("#app-form-change-login").value;
             if (newLogin) {
-                user.login = newLogin;
+                user.name = newLogin;
                 UserController.updateUser(user);
 
-                profileLogin.textContent = user.login;
+                profileLogin.textContent = user.name;
                 let menuLogin = document.querySelector("#app-menu-login");
-                menuLogin.textContent = user.login;
+                menuLogin.textContent = user.name;
 
                 profileContent.style.display = "block";
                 formChange.style.display = "none";
