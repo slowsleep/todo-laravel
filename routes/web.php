@@ -8,7 +8,11 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/app', [TodoController::class, 'index']);
+Route::group(['prefix' => 'app'], function () {
+    Route::get('/', [TodoController::class, 'index']);
+    Route::get('/profile', [TodoController::class, 'index']);
+    Route::get('/users', [TodoController::class, 'index']);
+});
 
 Route::get('/dashboard', function () {
     return view('dashboard');
