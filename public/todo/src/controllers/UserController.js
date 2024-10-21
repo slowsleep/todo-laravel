@@ -13,13 +13,19 @@ export function getUserById(id) {
         if (user.id == id) {
             let curUs = new User();
             curUs.id = user.id;
-            curUs.login = user.login;
+            curUs.name = user.name;
             curUs.password = user.password;
             curUs.role = user.role;
             return curUs;
         }
     }
     return false;
+}
+
+export function getUser() {
+    let user = localStorage.getItem("user");
+    if (!user) return false;
+    return JSON.parse(user);
 }
 
 export function isExists(login, password) {
@@ -44,7 +50,7 @@ export function updateUser(user) {
             tempUser.login = user.login;
         }
     }
-    
+
     updateStorage(users, "users");
 }
 
