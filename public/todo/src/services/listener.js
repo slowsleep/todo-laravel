@@ -1,4 +1,4 @@
-import { authUser } from "./auth";
+import { authUser, logoutUser } from "./auth";
 import { appState } from "../app";
 import { Task } from "../models/Task";
 import * as TaskController from "../controllers/TaskController";
@@ -33,9 +33,16 @@ export function loginForm() {
 export function logout() {
     const logoutBtn = document.querySelector("#app-logout-btn");
 
-    logoutBtn.addEventListener("click", function () {
-        localStorage.removeItem("user");
-        window.location.reload();
+    logoutBtn.addEventListener("click", async function (e) {
+        e.preventDefault();
+        const isLogout = await logoutUser();
+
+        if (isLogout) {
+            localStorage.removeItem("user");
+            window.location.reload();
+        } else {
+            alert("Произошла ошибка выхода");
+        }
     });
 }
 
