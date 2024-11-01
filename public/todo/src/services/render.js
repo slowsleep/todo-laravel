@@ -10,7 +10,7 @@ import { appState } from "../app";
 import * as TaskController from "../controllers/TaskController";
 import * as UserController from "../controllers/UserController";
 import * as listener from "./listener";
-import {getFromStorage} from "../utils";
+import * as ApiTaskController from "../controllers/ApiTaskController";
 
 export function baseTemplate(appState, isAdmin) {
     navRight(true);
@@ -18,7 +18,7 @@ export function baseTemplate(appState, isAdmin) {
     footer(appState);
 }
 
-export function content(appState) {
+export async function content(appState) {
     document.querySelector("#content").innerHTML = taskFieldTemplate;
 
     ["backlog", "ready", "in-progress", "finished"].map((status) => {
@@ -50,34 +50,11 @@ export function content(appState) {
         let isAdmin = false;
         let backlogTasks, readyTasks, inProgressTasks, finishedTasks;
         const status = ["backlog", "ready", "in-progress", "finished"];
-        if (user.role == "admin") {
-            isAdmin = true;
-            backlogTasks = [];
-            readyTasks = [];
-            inProgressTasks = [];
-            finishedTasks = [];
-            let tasks = getFromStorage("tasks");
-            for (let task of tasks) {
-                if (task.status == status[0]) backlogTasks.push(task)
-                if (task.status == status[1]) readyTasks.push(task)
-                if (task.status == status[2]) inProgressTasks.push(task)
-                if (task.status == status[3]) finishedTasks.push(task)
-            }
-        } else {
-            backlogTasks = TaskController.getUsersTasksByStatus(
-                user.id,
-                "backlog"
-            );
-            readyTasks = TaskController.getUsersTasksByStatus(user.id, "ready");
-            inProgressTasks = TaskController.getUsersTasksByStatus(
-                user.id,
-                "in-progress"
-            );
-            finishedTasks = TaskController.getUsersTasksByStatus(
-                user.id,
-                "finished"
-            );
-        }
+        let tasks = await ApiTaskController.getTasks();
+        backlogTasks = tasks.filter((task) => task.status == status[0]);
+        readyTasks = tasks.filter((task) => task.status == status[1]);
+        inProgressTasks = tasks.filter((task) => task.status == status[2]);
+        finishedTasks = tasks.filter((task) => task.status == status[3]);
 
         if (backlogTasks && backlogTasks.length > 0) {
             document
@@ -86,7 +63,7 @@ export function content(appState) {
             backlogTasks.map((taskBacklog) => {
                 addTaskToList(tasksListBacklog, taskBacklog, isAdmin);
                 listener.changeModalOnClickTaskById(taskBacklog.id);
-                listener.taskDrag(taskBacklog.id);
+                listener.taskDrag({taskId: taskBacklog.id, taskStatus: taskBacklog.status});
             });
         }
         if (readyTasks && readyTasks.length > 0) {
@@ -96,7 +73,7 @@ export function content(appState) {
             readyTasks.map((readyTask) => {
                 addTaskToList(tasksListReady, readyTask, isAdmin);
                 listener.changeModalOnClickTaskById(readyTask.id);
-                listener.taskDrag(readyTask.id);
+                listener.taskDrag({taskId: readyTask.id, taskStatus: readyTask.status});
             });
         }
         if (inProgressTasks && inProgressTasks.length > 0) {
@@ -106,7 +83,7 @@ export function content(appState) {
             inProgressTasks.map((inProgressTask) => {
                 addTaskToList(tasksListInProgress, inProgressTask, isAdmin);
                 listener.changeModalOnClickTaskById(inProgressTask.id);
-                listener.taskDrag(inProgressTask.id);
+                listener.taskDrag({taskId: inProgressTask.id, taskStatus: inProgressTask.status});
             });
         }
         if (finishedTasks && finishedTasks.length > 0) {

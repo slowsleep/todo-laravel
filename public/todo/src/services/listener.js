@@ -4,6 +4,7 @@ import { Task } from "../models/Task";
 import * as TaskController from "../controllers/TaskController";
 import * as UserController from "../controllers/UserController";
 import { addTaskToList, renderCount } from "./render";
+import * as ApiTaskController from "../controllers/ApiTaskController";
 
 export function loginForm() {
     const loginForm = document.querySelector("#app-login-form");
@@ -66,7 +67,7 @@ export function addTaskBacklog() {
             btnSubmitAddTaskBacklog.style.display = "block";
         }
 
-        btnSubmitAddTaskBacklog.addEventListener("click", function (e) {
+        btnSubmitAddTaskBacklog.addEventListener("click", async function (e) {
             e.stopImmediatePropagation();
             e.target.style.display = "none";
 
@@ -75,17 +76,16 @@ export function addTaskBacklog() {
             );
 
             if (textareaAddBacklog.value) {
-                let taskEntity = new Task(
-                    textareaAddBacklog.value,
-                    appState.currentUser.id,
-                    "backlog"
-                );
-                Task.save(taskEntity);
+                let taskEntity = await ApiTaskController.storeTask({
+                    title: textareaAddBacklog.value,
+                    status: "backlog",
+                });
 
                 let task = {
-                    id: taskEntity.id,
+                    id: taskEntity.task.id,
                     title: textareaAddBacklog.value,
-                    userId: appState.currentUser.id
+                    userId: appState.currentUser.id,
+                    status: "backlog",
                 };
 
                 taskBacklogList.removeChild(taskBacklogList.lastChild);
@@ -103,7 +103,7 @@ export function addTaskBacklog() {
                 }
 
                 changeModalOnClickTaskById(task.id);
-                taskDrag(task.id);
+                taskDrag({taskId: task.id, taskStatus: task.status});
             } else {
                 taskBacklogList.removeChild(taskBacklogList.lastChild);
             }
@@ -118,21 +118,12 @@ export function addTaskFromTo(oldStatus, newStatus, nextStatus = false) {
         `#app-add-task-${newStatus}`
     );
 
-    btnAddTaskNewStatus.addEventListener("click", function (e) {
-        let isAdmin = appState.currentUser.role == "admin";
+    btnAddTaskNewStatus.addEventListener("click", async function (e) {
         e.stopImmediatePropagation();
-        let user = appState.currentUser;
 
         let tasksOldStatus;
-        if (isAdmin) {
-            tasksOldStatus = TaskController.getTasksByStatus(oldStatus);
-        } else {
-            tasksOldStatus = TaskController.getUsersTasksByStatus(
-                user.id,
-                oldStatus
-            );
-        }
-
+        let tasks = await ApiTaskController.getTasks();
+        tasksOldStatus = tasks.filter((task) => task.status == oldStatus);
         let selectNewStatus = document.querySelector(
             `#app-select-${newStatus}`
         );
@@ -157,12 +148,13 @@ export function addTaskFromTo(oldStatus, newStatus, nextStatus = false) {
                 selectNewStatus.style.display = "block";
             }
 
-            selectNewStatus.addEventListener("change", function (e) {
+            selectNewStatus.addEventListener("change", async function (e) {
                 e.stopImmediatePropagation();
                 let selectedTask = {
                     id: e.target.options[e.target.selectedIndex].dataset.id,
                     title: selectNewStatus.value,
-                    userId: TaskController.getTaskById(e.target.options[e.target.selectedIndex].dataset.id).userId
+                    userId: await ApiTaskController.getTask(e.target.options[e.target.selectedIndex].dataset.id).userId,
+                    status: newStatus,
                 };
                 let taskListOldStatus = document.querySelector(
                     `#app-tasks-list-${oldStatus}`
@@ -171,7 +163,7 @@ export function addTaskFromTo(oldStatus, newStatus, nextStatus = false) {
                     `li[data-id="${selectedTask.id}"]`
                 );
                 taskListOldStatus.removeChild(oldTaskFromOldStatus);
-                TaskController.setStatus(selectedTask.id, newStatus);
+                await ApiTaskController.updateTask({id: selectedTask.id, status: newStatus});
 
                 let isAdmin = appState.currentUser.role == "admin";
                 addTaskToList(taskListNewStatus, selectedTask, isAdmin);
@@ -204,7 +196,7 @@ export function addTaskFromTo(oldStatus, newStatus, nextStatus = false) {
                 }
 
                 changeModalOnClickTaskById(selectedTask.id);
-                taskDrag(selectedTask.id);
+                taskDrag({taskId: selectedTask.id, taskStatus: selectedTask.status});
             });
         }
     });
@@ -238,7 +230,6 @@ export function btnUserDelete() {
 
 function listenModal() {
     let modal = document.querySelector("#modalTask");
-
     let modalLabel = document.querySelector("#exampleModalLabel");
     let contentModalShowTask = document.querySelector(
         "#app-modal-content-task-show"
@@ -250,8 +241,9 @@ function listenModal() {
     let btnSaveTask = document.querySelector("#app-modal-btn-save-task");
     let btnDeleteTask = document.querySelector("#app-modal-btn-delete-task");
 
-    modal.addEventListener("shown.bs.modal", function (e) {
-        let task = TaskController.getTaskById(e.target.dataset.taskId);
+    modal.addEventListener("shown.bs.modal", async function (e) {
+        e.stopImmediatePropagation();
+        let task = await ApiTaskController.getTask(e.target.dataset.taskId);
         modalLabel.textContent = task.title;
 
         if (contentModalShowTask.style.display == "none") {
@@ -276,7 +268,8 @@ function listenModal() {
         btnDeleteTask.addEventListener("click", clickDeleteBtnModalTask);
     });
 
-    modal.addEventListener("hide.bs.modal", function () {
+    modal.addEventListener("hide.bs.modal", function (e) {
+        e.stopImmediatePropagation();
         btnEditTask.removeEventListener("click", clickEditBtnModalTask);
         btnSaveTask.removeEventListener("click", clickSaveBtnModalTask);
         btnDeleteTask.removeEventListener("click", clickDeleteBtnModalTask);
@@ -285,8 +278,8 @@ function listenModal() {
         contentModalEditTask.style.display = "none";
     });
 
-    function clickEditBtnModalTask(e) {
-        let task = TaskController.getTaskById(e.target.dataset.forTaskId);
+    async function clickEditBtnModalTask(e) {
+        let task = await ApiTaskController.getTask(e.target.dataset.forTaskId);
         e.target.style.display = "none";
         contentModalShowTask.style.display = "none";
         contentModalEditTask.style.display = "block";
@@ -300,31 +293,39 @@ function listenModal() {
         }
     }
 
-    function clickSaveBtnModalTask(e) {
+    async function clickSaveBtnModalTask(e) {
         e.target.style.display = "none";
         let taskId = e.target.dataset.forTaskId;
         let title = document.querySelector("#task-title").value;
         let description = document.querySelector("#task-description").value;
-        TaskController.updateTask(taskId, title, description);
+        let updatedTask = {
+            id: taskId,
+            title,
+            description
+        };
+        let updateTask = await ApiTaskController.updateTask(updatedTask);
 
-        btnEditTask.style.display = "block";
-        contentModalEditTask.style.display = "none";
-        contentModalShowTask.style.display = "block";
+        if (updateTask) {
+            btnEditTask.style.display = "block";
+            contentModalEditTask.style.display = "none";
+            contentModalShowTask.style.display = "block";
+            modalLabel.textContent = updatedTask.title;
+            document.querySelector("#app-task-title").textContent = updatedTask.title;
+            document.querySelector("#app-task-description").textContent =
+            updatedTask.description ? updatedTask.description : "";
+            let isAdmin = appState.currentUser.role == "admin";
+            updateTaskInList(taskId, isAdmin);
+        } else {
+            alert('Произошла ошибка обновления задачи');
+        }
 
-        let task = TaskController.getTaskById(taskId);
-        modalLabel.textContent = task.title;
-        document.querySelector("#app-task-title").textContent = task.title;
-        document.querySelector("#app-task-description").textContent =
-            task.description ? task.description : "";
-        let isAdmin = appState.currentUser.role == "admin";
-        updateTaskInList(taskId, isAdmin);
     }
 
-    function clickDeleteBtnModalTask(e) {
+    async function clickDeleteBtnModalTask(e) {
         let taskId = e.target.dataset.forTaskId;
         deleteTaskFromList(taskId);
-        let task = TaskController.getTaskById(taskId);
-        TaskController.deleteTaskById(taskId);
+        let task = await ApiTaskController.getTask(taskId);
+        await ApiTaskController.destroyTask(taskId);
         changeAddButton(task.status);
         document.querySelector(`button[data-bs-dismiss="modal"]`).dispatchEvent(new Event("click"));
     }
@@ -348,9 +349,9 @@ export function changeModalOnClickTaskById(id) {
  * Update task in list (li element in ul) on task page
  * @param {Task.id} id
  */
-function updateTaskInList(id, isAdmin=false) {
+async function updateTaskInList(id, isAdmin=false) {
     let taskInList = document.querySelector(`li[data-id="${id}"]`);
-    let task = TaskController.getTaskById(id);
+    let task = await ApiTaskController.getTask(id);
     if (isAdmin) {
         let ownreTask = UserController.getUserById(task.userId);
         taskInList.textContent = `${ownreTask.login}: `;
@@ -365,23 +366,19 @@ function deleteTaskFromList(id) {
     taskInList.remove();
 }
 
-function changeAddButton(status) {
+async function changeAddButton(status) {
     const statuses = ["backlog", "ready", "in-progress", "finished"];
 
     if (status !== statuses[3]) {
         let tasksByStatus;
-
-        if (appState.currentUser.role == "admin") {
-            tasksByStatus = TaskController.getTasksByStatus(status);
-        } else {
-            tasksByStatus = TaskController.getUsersTasksByStatus(appState.currentUser.id, status);
-        }
+        let tasks = await ApiTaskController.getTasks();
+        tasksByStatus = tasks.filter(task => task.status == status);
 
         let indexStatus = statuses.indexOf(status);
         let nextStatus = statuses[indexStatus+1];
         let addBtnNextStatus = document.querySelector(`#app-add-task-${nextStatus}`);
 
-        if (!tasksByStatus) {
+        if (tasksByStatus.length == 0) {
             addBtnNextStatus.setAttribute("disabled", true);
         } else {
             addBtnNextStatus.removeAttribute("disabled");
@@ -389,33 +386,31 @@ function changeAddButton(status) {
     }
 }
 
-export function taskDrag(taskId) {
+export function taskDrag({taskId, taskStatus}) {
     let task = document.querySelector(`.app-task-list-item[data-id="${taskId}"]`);
     const statuses = ["backlog", "ready", "in-progress", "finished"];
 
     task.addEventListener("dragstart", function(e) {
-        let taskID = e.target.dataset.id;
-        let taskEntity = TaskController.getTaskById(taskID);
-        let status = taskEntity.status;
+        let status = taskStatus;
         let indexStatus = statuses.indexOf(status);
         let nextStatus = statuses[indexStatus+1];
 
         if (nextStatus && status != statuses[3] ) {
             e.dataTransfer.effectAllowed='move';
             e.dataTransfer.setData("taskId", taskId);
+            // Устанавливаем допустимый для перетаскивания статус
+            task.dataset.allowedStatus = nextStatus;
             let blockNextStatus = document.querySelector(`#app-taskblock-${nextStatus}`);
             blockNextStatus.addEventListener('dragenter',nextStatusDragenter);
             blockNextStatus.addEventListener('dragover', nextStatusDragover);
+            blockNextStatus.addEventListener('drop', nextStatusDrop);
             blockNextStatus.currentStatus = status;
             blockNextStatus.nextStatus = nextStatus;
-            blockNextStatus.addEventListener('drop', nextStatusDrop);
         }
     });
 
-    task.addEventListener("dragend", function(e) {
-        let taskID = e.target.dataset.id;
-        let taskEntity = TaskController.getTaskById(taskID);
-        let status = taskEntity.status;
+    task.addEventListener("dragend", function() {
+        let status = taskStatus;
         let indexStatus = statuses.indexOf(status);
         let nextStatus = statuses[indexStatus+1];
 
@@ -440,26 +435,34 @@ export function taskDrag(taskId) {
         event.preventDefault();
     }
 
-    function nextStatusDrop(event) {
+    async function nextStatusDrop(event) {
         event.stopPropagation();
-        let currentStatus = event.currentTarget.currentStatus;
-        let nextStatus = event.currentTarget.nextStatus;
 
-        if (nextStatus) {
-            var taskId = event.dataTransfer.getData("taskId");
-            let list = document.querySelector(`#app-tasks-list-${nextStatus}`);
-            let user = UserController.getUserById(appState.currentUser.id)
+        // Получаем текущий и допустимый для перетаскивания статус
+        let taskId = event.dataTransfer.getData("taskId");
+        let targetStatus = event.currentTarget.id.replace("app-taskblock-", "");
+        let allowedStatus = task.dataset.allowedStatus;
+
+        // Проверка, что перетаскивание разрешено в этот блок
+        if (targetStatus === allowedStatus) {
+            let list = document.querySelector(`#app-tasks-list-${targetStatus}`);
+            let user = UserController.getUserById(appState.currentUser.id);
 
             list.appendChild(document.querySelector(`li[data-id="${taskId}"]`));
-            TaskController.setStatus(taskId, nextStatus);
-            changeAddButton(nextStatus);
-            changeAddButton(currentStatus);
-            removeListeners(nextStatus);
 
-            if (currentStatus == "backlog") {
-                renderCount(user, currentStatus)
-            } else if ( nextStatus == "finished") {
-                renderCount(user, nextStatus)
+            await ApiTaskController.updateTask({
+                id: taskId,
+                status: targetStatus,
+            });
+
+            changeAddButton(targetStatus);
+            changeAddButton(taskStatus);  // предыдущий статус
+            taskStatus = targetStatus;    // обновляем текущий статус задачи
+
+            if (taskStatus == "backlog") {
+                renderCount(user, taskStatus);
+            } else if (targetStatus == "finished") {
+                renderCount(user, targetStatus);
             }
         }
     }
