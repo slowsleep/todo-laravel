@@ -21,7 +21,7 @@ class AuthController extends Controller
                 ->header('Authorization', $token);
         }
 
-        return response()->json(['error' => true, 'error_message' => 'User not found'], 200);
+        return response()->json(['error' => true, 'error_message' => 'User not found'], 401);
     }
 
     public function logout(Request $request)
